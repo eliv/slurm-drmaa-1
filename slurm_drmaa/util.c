@@ -117,6 +117,7 @@ enum slurm_native {
 	SLURM_NATIVE_COMMENT,
 	SLURM_NATIVE_CONSTRAINT,
 	SLURM_NATIVE_CONTIGUOUS,
+	SLURM_NATIVE_CPUS_PER_TASK,
 	SLURM_NATIVE_EXCLUSIVE,
 	SLURM_NATIVE_MEM,
 	SLURM_NATIVE_MEM_PER_CPU,
@@ -185,6 +186,7 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 	char * rest = NULL;
 	char * token = NULL;
 
+    fsd_log_debug(("# value for parsing is  %s",value));
 	switch(attr)
 	{
 		case SLURM_NATIVE_ACCOUNT:
@@ -209,6 +211,10 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 		case SLURM_NATIVE_CONTIGUOUS:
 			fsd_log_debug(( "# contiguous = 1"));
 			job_desc->contiguous = 1;
+			break;
+		case SLURM_NATIVE_CPUS_PER_TASK:
+			fsd_log_debug(( "# cpus_per_task = %s", value));
+            job_desc->cpus_per_task = fsd_atoi(value);
 			break;
 		case SLURM_NATIVE_EXCLUSIVE:
 			fsd_log_debug(( "# exclusive -> shared = 0"));
@@ -310,7 +316,9 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 		case SLURM_NATIVE_NTASKS:
 			fsd_log_debug(("# ntasks = %s",value));
 			job_desc->num_tasks = fsd_atoi(value); 
-			slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_MINCPUS,value);
+			/* slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_MINCPUS,value);
+             * mrg
+             */
 			break;	
 		case SLURM_NATIVE_TIME_LIMIT:
 			fsd_log_debug(("# time_limit = %s",value));
@@ -346,11 +354,11 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 			break;
 		case SLURM_NATIVE_TMP:
 			fsd_log_debug(("# tmp = %s", value));
-	        	#if SLURM_VERSION_NUMBER >= SLURM_VERSION_NUM(2,3,0)
-            		job_desc->pn_min_tmp_disk = fsd_atoi(value);
-            		#else
-            		job_desc->job_min_tmp_disk = fsd_atoi(value);
-            		#endif
+				#if SLURM_VERSION_NUMBER >= SLURM_VERSION_NUM(2,3,0)
+					job_desc->pn_min_tmp_disk = fsd_atoi(value);
+					#else
+					job_desc->job_min_tmp_disk = fsd_atoi(value);
+					#endif
 			break;
 		default:
 			fsd_exc_raise_fmt(FSD_DRMAA_ERRNO_INVALID_ATTRIBUTE_VALUE,"Invalid attribute");
@@ -365,10 +373,13 @@ slurmdrmaa_parse_additional_attr(job_desc_msg_t *job_desc,const char *add_attr)
 	char *ctxt = NULL;
 	char * volatile add_attr_copy = fsd_strdup(add_attr);
 
+	fsd_log_enter(( "" ));
+
 	TRY
 	  {
 		name = fsd_strdup(strtok_r(add_attr_copy, "=", &ctxt));
 		value = strtok_r(NULL, "=", &ctxt);
+        fsd_log_debug(( "parse addl attr value is: %s", value ));
 		/*
 		 * TODO: move it to slurmdrmaa_add_attribute
 		 if (value == NULL) {
@@ -390,6 +401,9 @@ slurmdrmaa_parse_additional_attr(job_desc_msg_t *job_desc,const char *add_attr)
 		}
 		else if (strcmp(name,"contiguous") == 0) {
 			slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_CONTIGUOUS,NULL);
+		}
+		else if (strcmp(name,"cpus-per-task") == 0) {
+			slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_CPUS_PER_TASK,value);
 		}
 		else if(strcmp(name,"exclusive") == 0) {
 			slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_EXCLUSIVE,NULL);
@@ -472,6 +486,7 @@ slurmdrmaa_parse_additional_attr(job_desc_msg_t *job_desc,const char *add_attr)
 		fsd_free(add_attr_copy);
 	  }
 	END_TRY
+	fsd_log_return(( "" ));
 }
 
 void 
@@ -487,6 +502,7 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 	TRY
 	 {
 		for (arg = strtok_r(native_spec_copy, " \t", &ctxt); arg; arg = strtok_r(NULL, " \t",&ctxt) ) {
+            fsd_log_debug(( "native specification argument string is: %s", arg ));
 			if (!opt) {
 				if ( (arg[0] != '-') || ((strlen(arg) != 2) && (strlen(arg) > 2) && arg[2] != ' ' && arg[1] !='-' ) ) {
 					fsd_exc_raise_fmt(FSD_DRMAA_ERRNO_INVALID_ATTRIBUTE_VALUE,
@@ -494,6 +510,7 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 							native_specification);
 				}
 				if(arg[1] == '-') {
+                    fsd_log_debug(( "additional parsing called for: %s", arg+2 ));
 					slurmdrmaa_parse_additional_attr(job_desc, arg+2);
 				}
 				else {
@@ -507,6 +524,9 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 					case 'C' :
 						slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_CONSTRAINT, arg);
 						break;	
+					case 'c' :
+						slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_CPUS_PER_TASK, arg);
+						break;  
 					case 'N' :	
 						slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_NODES, arg);
 						break;	
@@ -546,7 +566,37 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 					opt = 0;
 				}
 			}
+            fsd_log_debug(( "checking task/cpu sanity" ));
+            fsd_log_debug(( "num_tasks: %d \ncpus_per_task: %d \nmin_cpus: %d \n", 
+                        job_desc->num_tasks,
+                        job_desc->cpus_per_task,
+                        job_desc->min_cpus
+                        ));
+            if( job_desc->num_tasks <= 0 ){
+                fsd_log_debug(( "set num_tasks to default" ));
+                job_desc->num_tasks = 1;
+            }
+            if( job_desc->num_tasks * job_desc->cpus_per_task > job_desc->min_cpus ){
+                fsd_log_debug(( "setting min_cpus to %d", job_desc->num_tasks * job_desc->cpus_per_task ));
+                job_desc->min_cpus = job_desc->num_tasks * job_desc->cpus_per_task ;
+            }
+            fsd_log_debug(( "num_tasks: %d \ncpus_per_task: %d \nmin_cpus: %d \n", 
+                        job_desc->num_tasks,
+                        job_desc->cpus_per_task,
+                        job_desc->min_cpus
+                        ));
 		}
+        /* set min cpus
+        // mrg
+        */
+
+        /*
+         * job_desc->mincpus
+         * job_desc->mincpus
+         * if( job_desc->num_tasks > 0 )
+         * {
+         * slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_MINCPUS,value);
+         */
 
 		if(strlen(native_spec_copy) == 2 && native_spec_copy[0] == '-' && native_spec_copy[1] == 's')
 		{
