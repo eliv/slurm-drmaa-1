@@ -257,8 +257,8 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 			fsd_log_debug(("# job_min_cpus = %s",value));
 			job_desc->job_min_cpus = fsd_atoi(value);
 		#else
-			fsd_log_debug(("# min_cpus = %s",value));
-			job_desc->min_cpus = fsd_atoi(value);
+			fsd_log_debug(("# pn_min_cpus = %s",value));
+			job_desc->pn_min_cpus = fsd_atoi(value);
 		#endif
 			break;
 		case SLURM_NATIVE_NODELIST:
@@ -379,7 +379,6 @@ slurmdrmaa_parse_additional_attr(job_desc_msg_t *job_desc,const char *add_attr)
 	  {
 		name = fsd_strdup(strtok_r(add_attr_copy, "=", &ctxt));
 		value = strtok_r(NULL, "=", &ctxt);
-        fsd_log_debug(( "parse addl attr value is: %s", value ));
 		/*
 		 * TODO: move it to slurmdrmaa_add_attribute
 		 if (value == NULL) {
@@ -502,7 +501,6 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 	TRY
 	 {
 		for (arg = strtok_r(native_spec_copy, " \t", &ctxt); arg; arg = strtok_r(NULL, " \t",&ctxt) ) {
-            fsd_log_debug(( "native specification argument string is: %s", arg ));
 			if (!opt) {
 				if ( (arg[0] != '-') || ((strlen(arg) != 2) && (strlen(arg) > 2) && arg[2] != ' ' && arg[1] !='-' ) ) {
 					fsd_exc_raise_fmt(FSD_DRMAA_ERRNO_INVALID_ATTRIBUTE_VALUE,
@@ -510,7 +508,6 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 							native_specification);
 				}
 				if(arg[1] == '-') {
-                    fsd_log_debug(( "additional parsing called for: %s", arg+2 ));
 					slurmdrmaa_parse_additional_attr(job_desc, arg+2);
 				}
 				else {
@@ -582,25 +579,20 @@ slurmdrmaa_parse_native(job_desc_msg_t *job_desc, const char * value)
 	 }
 	FINALLY
 	 {
-        fsd_log_debug(( "checking task/cpu sanity" ));
-        fsd_log_debug(( "num_tasks: %d \ncpus_per_task: %d \nmin_cpus: %d \n", 
-                    job_desc->num_tasks,
-                    job_desc->cpus_per_task,
-                    job_desc->min_cpus
-                    ));
-        if( job_desc->num_tasks <= 0 ){
-            fsd_log_debug(( "set num_tasks to default" ));
-            job_desc->num_tasks = 1;
-        }
-        if( job_desc->num_tasks * job_desc->cpus_per_task > job_desc->min_cpus ){
-            fsd_log_debug(( "setting min_cpus to %d", job_desc->num_tasks * job_desc->cpus_per_task ));
+        fsd_log_debug(( "finalizing job constraints" ));
+        if( job_desc->cpus_per_task > 0 ) {
             job_desc->min_cpus = job_desc->num_tasks * job_desc->cpus_per_task ;
+            fsd_log_debug((
+                        "set min_cpus to ntasks*cpus_per_task: %d",
+                        job_desc->min_cpus 
+                        ));
+        } else {
+            job_desc->min_cpus = job_desc->num_tasks ; 
+            fsd_log_debug((
+                        "set min_cpus to ntasks: %d",
+                        job_desc->min_cpus 
+                        ));
         }
-        fsd_log_debug(( "num_tasks: %d \ncpus_per_task: %d \nmin_cpus: %d \n", 
-                    job_desc->num_tasks,
-                    job_desc->cpus_per_task,
-                    job_desc->min_cpus
-                    ));
 		fsd_free(native_spec_copy);
 		fsd_free(native_specification);
 	 }
