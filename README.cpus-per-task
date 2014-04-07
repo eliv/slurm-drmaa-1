@@ -8,7 +8,7 @@ svn co https://apps.man.poznan.pl/svn/drmaa-misc/drmaa_utils/trunk drmaa_utils
 BUILD
 ./autoclean.sh 
 ./autogen.sh 
-./configure --enable-debug --prefix=/home/mrg/apps/testing/drmaa-1.0.7 --no-create --no-recursion
+./configure --enable-debug --prefix=/home/mrg/apps/testing/drmaa-1.0.7
 make && make install
 
 RUN
