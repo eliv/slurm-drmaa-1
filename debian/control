@@ -1,0 +1,38 @@
+Source: slurm-drmaa
+Priority: optional
+Maintainer: Dominique Belhachemi <domibel@debian.org>
+Build-Depends: debhelper (>= 9), bison, gperf, ragel, libslurm-dev
+Standards-Version: 3.9.4
+Section: libs
+Homepage: http://apps.man.poznan.pl/trac/slurm-drmaa
+Vcs-Browser: http://svn.debian.org/wsvn/pkg-escience/slurm-drmaa/
+Vcs-Svn: svn://svn.debian.org/svn/pkg-escience/slurm-drmaa/
+
+Package: slurm-drmaa-dev
+Section: libdevel
+Architecture: any
+Conflicts: libdrmaa-dev (<< 6.2u5-3), pbs-drmaa-dev (<< 1.0.10-2)
+Depends: slurm-drmaa1 (= ${binary:Version}), ${misc:Depends}
+Description: PSNC DRMAA for SLURM - devel
+ PSNC DRMAA for  Simple Linux Utility for Resource Management (SLURM)
+ is an implementation of  Open Grid Forum  DRMAA 1.0 (Distributed
+ Resource Management Application API)  specification for submission
+ and control of jobs to  Simple Linux Utility for Resource Management 
+ (SLURM). Using DRMAA, grid applications builders, portal developers
+ and ISVs can use the same high-level API to link their software with
+ different cluster/resource management systems.
+ .
+ This package contains the development files for slurm-drmaa.
+
+Package: slurm-drmaa1
+Architecture: any
+Conflicts: libdrmaa1.0 (<< 6.2u5-3), pbs-drmaa1 (<< 1.0.10-2)
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: PSNC DRMAA for SLURM - runtime
+ PSNC DRMAA for Simple Linux Utility for Resource Management (SLURM)
+ is an implementation of  Open Grid Forum  DRMAA 1.0 (Distributed
+ Resource Management Application API)  specification for submission
+ and control of jobs to  Simple Linux Utility for Resource Management 
+ (SLURM). Using DRMAA, grid applications builders, portal developers
+ and ISVs can use the same high-level API to link their software with
+ different cluster/resource management systems.
