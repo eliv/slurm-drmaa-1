@@ -32,3 +32,13 @@ readme.log
 *.lo
 *.o
 *.la
+debian/files
+debian/slurm-drmaa-dev.debhelper.log
+debian/slurm-drmaa-dev.substvars
+debian/slurm-drmaa-dev/
+debian/slurm-drmaa1.debhelper.log
+debian/slurm-drmaa1.postinst.debhelper
+debian/slurm-drmaa1.postrm.debhelper
+debian/slurm-drmaa1.substvars
+debian/slurm-drmaa1/
+debian/tmp/

@@ -2,7 +2,7 @@ slurm-drmaa (1.0.7-1build1) precise; urgency=low
 
   * new upstream version
 
- -- Michael Gutteridge <mrg@fhcrc.org>  Wed, 12 Feb 2014 14:11:11 -0800
+ -- Michael Gutteridge <michael.gutteridge@gmail.com>  Wed, 12 Feb 2014 14:11:11 -0800
 
 slurm-drmaa (1.0.6-3build1) precise; urgency=low
 
