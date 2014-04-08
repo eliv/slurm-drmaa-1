@@ -186,7 +186,6 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 	char * rest = NULL;
 	char * token = NULL;
 
-    fsd_log_debug(("# value for parsing is  %s",value));
 	switch(attr)
 	{
 		case SLURM_NATIVE_ACCOUNT:
@@ -316,9 +315,6 @@ slurmdrmaa_add_attribute(job_desc_msg_t *job_desc, unsigned attr, const char *va
 		case SLURM_NATIVE_NTASKS:
 			fsd_log_debug(("# ntasks = %s",value));
 			job_desc->num_tasks = fsd_atoi(value); 
-			/* slurmdrmaa_add_attribute(job_desc,SLURM_NATIVE_MINCPUS,value);
-             * mrg
-             */
 			break;	
 		case SLURM_NATIVE_TIME_LIMIT:
 			fsd_log_debug(("# time_limit = %s",value));
