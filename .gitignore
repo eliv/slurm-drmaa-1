@@ -23,7 +23,7 @@ readme.tex
 .deps
 .project
 .cproject
-slurm_drmaa-1.0.0.tar.gz
+*.tar.gz
 readme.toc
 readme.out
 readme.pdf
