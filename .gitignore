@@ -29,3 +29,6 @@ readme.out
 readme.pdf
 readme.aux
 readme.log
+*.lo
+*.o
+*.la

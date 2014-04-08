@@ -1,0 +1,17 @@
+CHECKOUT SOURCE
+git clone git@bitbucket.org:atombaby/slurm-drmaa.git
+git fetch && git checkout cpus_per_task
+
+GET THIS
+svn co https://apps.man.poznan.pl/svn/drmaa-misc/drmaa_utils/trunk drmaa_utils
+
+BUILD
+./autoclean.sh 
+./autogen.sh 
+./configure --enable-debug --prefix=/home/mrg/apps/testing/drmaa-1.0.7
+make && make install
+
+RUN
+export LD_LIBRARY_PATH=/home/mrg/apps/testing/drmaa-1.0.7/lib
+export PATH=/home/mrg/apps/testing/drmaa-1.0.7/bin:/home/mrg/apps/x86_64-ubuntu-linux-12.04/bin:/opt/moab/bin:/app/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/home/mrg/bin
+
