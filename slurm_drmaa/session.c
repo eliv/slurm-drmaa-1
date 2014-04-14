@@ -32,7 +32,14 @@ static char *slurmdrmaa_session_run_job(fsd_drmaa_session_t *self, const fsd_tem
 
 static fsd_iter_t *slurmdrmaa_session_run_bulk(	fsd_drmaa_session_t *self,const fsd_template_t *jt, int start, int end, int incr );
 
-static fsd_job_t *slurmdrmaa_session_new_job( fsd_drmaa_session_t *self, const char *job_id );
+fsd_job_t *
+slurmdrmaa_session_new_job( fsd_drmaa_session_t *self, const char *job_id )
+{
+	fsd_job_t *job;
+	job = slurmdrmaa_job_new( fsd_strdup(job_id) );
+	job->session = self;
+	return job;
+}
 
 fsd_drmaa_session_t *
 slurmdrmaa_session_new( const char *contact )
@@ -83,7 +90,6 @@ slurmdrmaa_session_run_job(
 	return job_id;
 }
 
-
 fsd_iter_t *
 slurmdrmaa_session_run_bulk(
 		fsd_drmaa_session_t *self,
@@ -92,26 +98,38 @@ slurmdrmaa_session_run_bulk(
 {
 	fsd_job_t *volatile job = NULL;
 	char **volatile job_ids = NULL;
-	unsigned n_jobs = 0;
+	unsigned n_jobs = 1;
 	volatile bool connection_lock = false;
 	fsd_environ_t *volatile env = NULL;
 	job_desc_msg_t job_desc;
 	submit_response_msg_t *submit_response = NULL;
-	
+	job_info_msg_t *job_info = NULL;
+
+    /* zero out the struct, and set default vaules */
+	slurm_init_job_desc_msg( &job_desc );
+
 	TRY
 	 {
-
-		if( start != end )
-			n_jobs = (end - start) / incr + 1;
-		else 
-			n_jobs = 1;	
-
+		unsigned i;
 		if(  start != end )
 		 {
-			unsigned idx, i;
+			unsigned idx;
+			int n;
+
+			n_jobs = (end - start) / incr + 1;
 
 			fsd_calloc( job_ids, n_jobs+1, char* );
 
+#if SLURM_VERSION_NUMBER >= SLURM_VERSION_NUM(2,6,0)
+#define ARRAY_IDX_SIZE 31
+/* <int>-<int>:<int> should only add up to 30 */
+             fsd_calloc( job_desc.array_inx, ARRAY_IDX_SIZE+1, char*);
+
+             n = snprintf( job_desc.array_inx, ARRAY_IDX_SIZE, "%d-%d:%d", start, end, incr );
+             if ( n < 0 || n > ARRAY_IDX_SIZE )
+                 fsd_exc_raise_fmt( FSD_ERRNO_INTERNAL_ERROR,"slurmdrmma_session_run_bulk: snprintf failure.");
+         }
+#else
 			for( idx = start, i = 0;  idx <= (unsigned)end;  idx += incr, i++ )
 			 {
 				connection_lock = fsd_mutex_lock( &self->drm_connection_mutex );
@@ -123,7 +141,6 @@ slurmdrmaa_session_run_bulk(
 
 				fsd_log_debug(("job %u submitted", submit_response->job_id));         
 				connection_lock = fsd_mutex_unlock( &self->drm_connection_mutex );
-
 
 				job_ids[i] = fsd_asprintf("%d",submit_response->job_id); /*TODO  */
 
@@ -139,7 +156,7 @@ slurmdrmaa_session_run_bulk(
 		else /* ! bulk */
 		 {
 			fsd_calloc( job_ids, n_jobs+1, char* );
-			
+#endif
 			connection_lock = fsd_mutex_lock( &self->drm_connection_mutex );
 			slurmdrmaa_job_create_req( self, jt, (fsd_environ_t**)&env , &job_desc, 0);
 			if(slurm_submit_batch_job(&job_desc,&submit_response)){
@@ -147,17 +164,42 @@ slurmdrmaa_session_run_bulk(
 					FSD_ERRNO_INTERNAL_ERROR,"slurm_submit_batch_job: %s",slurm_strerror(slurm_get_errno()));
 			}
 
-			fsd_log_debug(("job %u submitted", submit_response->job_id));         
 			connection_lock = fsd_mutex_unlock( &self->drm_connection_mutex );
-			
-			job_ids[0] = fsd_asprintf( "%d", submit_response->job_id); /* .0*/
 
-			job = slurmdrmaa_job_new( fsd_strdup(job_ids[0]) ); /* TODO: ??? */
-			job->session = self;
-			job->submit_time = time(NULL);
-			self->jobs->add( self->jobs, job );
-			job->release( job );
-			job = NULL;
+			fsd_log_debug(("job %u submitted", submit_response->job_id));
+
+#if SLURM_VERSION_NUMBER >= SLURM_VERSION_NUM(2,6,0)
+            if(  start != end )
+            {
+                if ( SLURM_SUCCESS == slurm_load_job( &job_info, submit_response->job_id, 0) )
+                {
+                    fsd_assert(  job_info->record_count == n_jobs );
+                    for(i=0; i < job_info->record_count; i++)
+                    {
+                        job_ids[i] = fsd_asprintf( "%d", job_info->job_array[i].job_id);
+
+                        job = slurmdrmaa_job_new( fsd_strdup(job_ids[i]) );
+                        job->session = self;
+                        job->submit_time = time(NULL);
+                        self->jobs->add( self->jobs, job );
+                        job->release( job );
+                        job = NULL;
+                    }
+                } else  {
+                    fsd_exc_raise_fmt( FSD_ERRNO_INTERNAL_ERROR,"slurm_load_job: %s",slurm_strerror(slurm_get_errno()));
+                }
+            }
+            else {
+                fsd_calloc( job_ids, n_jobs+1, char* );
+#endif
+                job_ids[0] = fsd_asprintf( "%d", submit_response->job_id); /* .0*/
+
+                job = slurmdrmaa_job_new( fsd_strdup(job_ids[0]) ); /* TODO: ??? */
+                job->session = self;
+                job->submit_time = time(NULL);
+                self->jobs->add( self->jobs, job );
+                job->release( job );
+                job = NULL;
 		 }
 	 }
 	 ELSE
@@ -186,14 +228,3 @@ slurmdrmaa_session_run_bulk(
 
 	return fsd_iter_new( job_ids, n_jobs );
 }
-
-
-fsd_job_t *
-slurmdrmaa_session_new_job( fsd_drmaa_session_t *self, const char *job_id )
-{
-	fsd_job_t *job;
-	job = slurmdrmaa_job_new( fsd_strdup(job_id) );
-	job->session = self;
-	return job;
-}
-

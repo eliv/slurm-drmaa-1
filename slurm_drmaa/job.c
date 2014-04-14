@@ -329,10 +329,6 @@ slurmdrmaa_job_create(
 	const char *const *vector;
 	const char *job_category = "default";
 	
-	slurmdrmaa_init_job_desc( job_desc );
-
-	slurm_init_job_desc_msg( job_desc );
-	
 	job_desc->user_id = getuid();
 	job_desc->group_id = getgid();
 
